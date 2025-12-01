@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ship JSON Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    label { display: block; margin-top: 1rem; font-weight: bold; }
+    input, select, button, textarea { width: 100%; padding: 0.5rem; margin-top: 0.25rem; }
+    textarea { height: 300px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Ship JSON Generator</h1>
+
+  <label>Ship Type</label>
+  <select id="shipType" onchange="updateShipModels()">
+    <option value="Ship">Ship</option>
+    <option value="Supercarrier">Supercarrier</option>
+    <option value="UK Carrier">UK Carrier</option>
+  </select>
+
+  <label>Ship Model</label>
+  <select id="shipModel"></select>
+
+  <label id="speedLabel">Speed (knots)</label>
+  <input id="speed" type="number" min="0" placeholder="0" />
+
+  <label id="spawnStateLabel">Spawn State</label>
+  <select id="spawnState">
+    <option>None</option>
+    <option>Ready to go</option>
+    <option>Shutdown</option>
+  </select>
+
+  <div id="spawnCarrierBox" class="hidden" style="margin-top:1rem;">
+    <label for="spawnCarrierSelect" style="font-weight:bold;">Spawn on Carrier</label>
+    <select id="spawnCarrierSelect">
+      <option value="false" selected>No</option>
+      <option value="true">Yes</option>
+    </select>
+  </div>
+
+  <label>Latitude</label>
+  <input id="lat" type="text" placeholder="e.g., 36.9435" />
+
+  <label>Longitude</label>
+  <input id="lon" type="text" placeholder="e.g., -76.3195" />
+
+  <label>Orientation (leave blank for random)</label>
+  <input id="orientation" type="number" min="0" max="359" placeholder="0-359" />
+
+  <button onclick="generateJSON()">Generate JSON</button>
+  <button onclick="downloadJSON()">Download JSON</button>
+
+  <label>Generated JSON</label>
+  <textarea id="output"></textarea>
+
+  <script>
+const shipOptions = {
+  "Ship": ["USCG Cutter", "LHD Juan Carlos I", "HMAS Adelaide", "HDMS Triton", "Arleigh Burke Destroyer", "Independence LCS", "Ticonderoga Cruiser", "Cruise Ship", "Hospital Ship", "Tanker Ship", "Type 45 Destroyer", "Type 23 Frigate"],
+  "Supercarrier": ["CVN-69 Moving", "CVN-69 Static", "CVN-76 Moving", "CVN-76 Static", "CVN-78 Moving", "CVN-78 Static", "FrenchCDG Moving", "French CDG Static"],
+  "UK Carrier": ["HMS Prince of Wales Moving", "HMS Prince of Wales Static", "HMS Queen Elizabeth Moving", "HMS Queen Elizabeth Static"]
+};
+
+window.onload = () => updateShipModels();
+
+function updateShipModels() {
+  const type = document.getElementById('shipType').value;
+  const modelSelect = document.getElementById('shipModel');
+  modelSelect.innerHTML = '';
+
+  shipOptions[type].forEach(model => {
+    const opt = document.createElement('option');
+    opt.value = model;
+    opt.textContent = model;
+    modelSelect.appendChild(opt);
+  });
+
+  const speed = document.getElementById('speed');
+  const speedLabel = document.getElementById('speedLabel');
+  const spawnState = document.getElementById('spawnState');
+  const spawnStateLabel = document.getElementById('spawnStateLabel');
+  const spawnCarrierBox = document.getElementById('spawnCarrierBox');
+
+  if (type !== "Ship") {
+    speed.classList.add('hidden');
+    speedLabel.classList.add('hidden');
+    spawnState.classList.add('hidden');
+    spawnStateLabel.classList.add('hidden');
+    spawnCarrierBox.classList.remove('hidden');
+  } else {
+    speed.classList.remove('hidden');
+    speedLabel.classList.remove('hidden');
+    spawnState.classList.remove('hidden');
+    spawnStateLabel.classList.remove('hidden');
+    spawnCarrierBox.classList.add('hidden');
+  }
+}
+
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function generateJSON() {
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lon = parseFloat(document.getElementById('lon').value);
+  const shipType = document.getElementById('shipType').value;
+  const model = document.getElementById('shipModel').value;
+  const spawnCarrier = document.getElementById('spawnCarrierSelect').value === 'true';
+
+  let orientation = document.getElementById('orientation').value;
+  if (!orientation) orientation = Math.floor(Math.random() * 360);
+
+  let speed = 0;
+  let spawnState = "None";
+
+  const attributeMap = { "Orientation": Number(orientation) };
+
+  if (shipType === "Ship") {
+    speed = document.getElementById('speed').value || 0;
+    spawnState = document.getElementById('spawnState').value;
+    attributeMap["Ship Model"] = model;
+    attributeMap["Ship Speed"] = Number(speed);
+    attributeMap["Ship Spawn"] = spawnState;
+  } else if (shipType === "Supercarrier") {
+    attributeMap["Carrier Type"] = model;
+    attributeMap["Spawn on Carrier"] = spawnCarrier;
+  } else if (shipType === "UK Carrier") {
+    attributeMap["UK Carrier Type"] = model;
+    attributeMap["Spawn on Carrier"] = spawnCarrier;
+  }
+
+  const region = `region-${Math.floor(Math.random() * 9999)}`;
+
+  const json = {
+    "ScenarioMetadata": {
+      "scenarioGUID": generateUUID(),
+      "version": "1.0.0",
+      "definitions": { "MissionHubBase": "1.0.1" },
+      "createdAt": new Date().toISOString(),
+      "updatedAt": new Date().toISOString(),
+      "editorVersion": "1.0.0"
+    },
+    "ScenarioSettings": [
+      { "definitionName": "Scenario Details", "attributeMap": { "Title": `${model} ${region}`, "Description": "", "Author": "", "Mission Type": "Training", "Allowed Aircraft Type": "All" }},
+      { "definitionName": "Briefing", "attributeMap": { "Difficulty": "Normal", "Estimated Duration": 0, "Briefing Text": "" }},
+      { "definitionName": "Date and Time", "attributeMap": { "Live Date and Time": true, "Year": 2025, "Month": 1, "Day": 1, "Hours": 12, "Minutes": 0 }},
+      { "definitionName": "Environment", "attributeMap": { "Weather Preset": "Live Weather", "Multiplayer": false, "Online traffic": false, "AI traffic": false, "Airport traffic": false, "Road traffic": false, "Boat traffic": false }},
+      { "definitionName": "Advanced", "attributeMap": { "Additional Script File": "", "Assistance Preset": "Keep Current", "Custom Weather Preset": "", "Dialog Package Name": "" }}
+    ],
+    "ScenarioObjects": [
+      {
+        "objectName": shipType,
+        "latitude": lat,
+        "longitude": lon,
+        "definitionName": shipType,
+        "instanceGuid": generateUUID(),
+        "groupIndex": 0,
+        "attributeMap": attributeMap,
+        "inputMap": {},
+        "outputMap": {}
+      }
+    ],
+    "ScenarioRoutes": []
+  };
+
+  document.getElementById('output').value = JSON.stringify(json, null, 2);
+}
+
+function downloadJSON() {
+  const content = document.getElementById('output').value;
+  if (!content) return alert('Generate JSON first.');
+
+  const blob = new Blob([content], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mission.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+
+</body>
+</html>
